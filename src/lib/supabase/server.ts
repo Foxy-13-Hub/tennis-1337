@@ -1,4 +1,4 @@
-ts
+
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { CookieOptions } from "@supabase/ssr";
