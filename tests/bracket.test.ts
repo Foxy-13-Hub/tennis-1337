@@ -1,42 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
-
-import { generateBracketMatches, generateDrawSlots, getCornerPositions, nextPowerOfTwo } from "../lib/tournament/bracket";
-
-describe("bracket generation", () => {
-  it("handles next power of two and byes", () => {
-    expect(nextPowerOfTwo(48)).toBe(64);
-  });
-
-  it("pins corner teams and avoids duplication", () => {
-    const teams = Array.from({ length: 10 }, (_, index) => `team-${index + 1}`);
-    vi.spyOn(Math, "random").mockReturnValue(0.5);
-
-    const draw = generateDrawSlots({
-      teams,
-      cornerTeamIds: {
-        topLeft: "team-1",
-        bottomLeft: "team-2",
-        topRight: "team-3",
-        bottomRight: "team-4",
-      },
-    });
-
-    const corners = getCornerPositions(draw.capacity);
-    const slotsByPosition = new Map(draw.slots.map((slot) => [slot.position, slot.teamId]));
-
-    expect(slotsByPosition.get(corners.topLeft)).toBe("team-1");
-    expect(slotsByPosition.get(corners.bottomLeft)).toBe("team-2");
-    expect(slotsByPosition.get(corners.topRight)).toBe("team-3");
-    expect(slotsByPosition.get(corners.bottomRight)).toBe("team-4");
-
-    const assigned = draw.slots.map((slot) => slot.teamId).filter(Boolean);
-    expect(new Set(assigned).size).toBe(assigned.length);
-  });
-
-  it("creates stable dependency tree shape", () => {
-    const nodes = generateBracketMatches(8);
-    expect(nodes.filter((node) => node.roundNumber === 1)).toHaveLength(4);
-    expect(nodes.filter((node) => node.roundNumber === 2)).toHaveLength(2);
-    expect(nodes.filter((node) => node.roundNumber === 3)).toHaveLength(1);
-  });
+import { describe, expect, it } from "vitest";
+import { generateBracket } from "../src/lib/bracket";
+import type { Team } from "../src/lib/types";
+const team=(id:string):Team=>({id,name:id,players:[{id:id+"a",name:id+" A",image:""},{id:id+"b",name:id+" B",image:""}]});
+const teams=Array.from({length:8},(_,i)=>team(`t${i+1}`));
+const corners={topLeft:"t1",bottomLeft:"t2",topRight:"t3",bottomRight:"t4"};
+describe("generateBracket",()=>{
+ it("preserves all four selected corners",()=>{
+  const matches=generateBracket(teams,corners,()=>0.4);
+  const first=matches.filter(m=>m.round===1);
+  expect(first[0].teamA?.id).toBe("t1");
+  expect(first[1].teamB?.id).toBe("t2");
+  expect(first[2].teamA?.id).toBe("t3");
+  expect(first[3].teamB?.id).toBe("t4");
+ });
+ it("does not duplicate teams in first round",()=>{
+  const matches=generateBracket(teams,corners);
+  const ids=matches.filter(m=>m.round===1).flatMap(m=>[m.teamA?.id,m.teamB?.id]).filter(Boolean);
+  expect(new Set(ids).size).toBe(teams.length);
+ });
+ it("rejects duplicate corner selection",()=>{
+  expect(()=>generateBracket(teams,{...corners,bottomLeft:"t1"})).toThrow();
+ });
 });

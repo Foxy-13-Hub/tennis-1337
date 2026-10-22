@@ -1,90 +1,35 @@
-# 1337 Tennis Tournament Platform
+# 1337 Tennis Open
 
-Production-oriented Next.js App Router tournament platform for a public doubles bracket and a protected admin dashboard at `/tournament-tennis-1337-admin`.
+A Next.js app with **two user-facing pages**:
 
-## Stack
+- `/` — public tournament bracket only. The page shows a preliminary play-in and the mirrored 16-team knockout bracket with the final in the center.
+- `/tournament-tennis-1337-admin` — protected admin login and dashboard.
 
-- Next.js App Router + TypeScript strict mode
-- Tailwind CSS
-- shadcn/ui-compatible component primitives
-- Lucide icons
-- Supabase PostgreSQL + Auth
-- Zod validation
-- 42 API server-side integration with graceful fallback + cache hints
-
-## Local setup
+## Run locally
 
 ```bash
+cp .env.example .env.local
 npm install
 npm run dev
 ```
 
-Create `.env.local`:
+Set three strong admin passwords and a random `ADMIN_SESSION_SECRET` of at least 32 characters in `.env.local` before using the admin route. Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only.
 
-```bash
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-FORTY_TWO_CLIENT_ID=
-FORTY_TWO_CLIENT_SECRET=
-FORTY_TWO_API_BASE_URL=https://api.intra.42.fr/v2
-TOURNAMENT_TIMEZONE=Africa/Casablanca
-ADMIN_ALLOWLIST=admin@example.com
-```
+## Supabase setup
 
-## Database migration
+Run `supabase/schema.sql`, then `supabase/seed_players_teams.sql` in the Supabase SQL Editor. Configure the URL, publishable/anon key and service role key in `.env.local`.
 
-Apply SQL migration in Supabase SQL editor:
+## Live tournament operations
 
-- `supabase/migrations/20261022115000_init_tournament.sql`
+The public bracket and admin dashboard now read/write the same saved tournament state in Supabase. Run both SQL files in this order: `supabase/schema.sql`, then `supabase/seed_players_teams.sql`. The state row is initialized from the bundled draw the first time the server reads it; later changes persist in `public.tournament_state`.
 
-This creates normalized tables for tournaments, players, teams, team_members, matches, match_sets, match_dependencies, administrators, and append-only audit_events, with constraints/indexes/triggers for team validity and draw consistency.
+From `/tournament-tennis-1337-admin`, an authorized admin can:
 
-## Admin access model
+- Change any player's display name while keeping the original login/avatar filename.
+- Set or change the date/time and court/place for every match, including the play-in.
+- Record a best-of-three set result (2–0 or 2–1, for either team). The winner advances automatically, and the score/winner is shown on the public bracket.
+- Correct or clear a score. Later-round slots are cleared and can be recorded again after the correction.
 
-- Real Supabase authentication is required.
-- Server-side allowlist check uses `administrators` table (plus optional `ADMIN_ALLOWLIST` fallback).
-- Privileged operations are protected with server-side authorization in route handlers.
+The public page remains the bracket page only. The service-role key is used only on the server and must never be exposed to browser code. A Supabase service-role key and the SQL migration are required for persistent live operations; without them, the public page falls back to the bundled preview and admin mutations return a configuration error.
 
-## Import (`t.txt`) workflow
-
-Importer endpoint supports preview and commit:
-
-- `POST /api/admin/import-preview`
-- `POST /api/admin/import-commit`
-
-Validation includes empty/invalid rows, missing IDs, duplicates, duplicate membership, odd unmatched individuals, and pair-mode consistency.
-
-### `t.txt` note
-
-No `t.txt` file exists in this repository right now, so importer parsing is format-detection-based (supports `|`, `;`, `,`, tab, and whitespace tokenized rows).
-
-## Draw and scoring
-
-- Single-elimination doubles with next-power-of-two capacity and bye support.
-- Four administrator-selected corners are pinned and excluded from random pool.
-- Draw persistence and guarded reset (especially after played matches).
-- Server-side score validation for best-of-three by default.
-- Result submission updates winner and next-round slot and writes audit events.
-
-## Testing
-
-Focused tests cover core logic:
-
-```bash
-npm run test
-```
-
-## Quality checks
-
-```bash
-npm run lint
-npm run typecheck
-npm run build
-```
-
-## Deployment
-
-- Deploy Next.js app on Vercel.
-- Configure environment variables in Vercel project settings.
-- Use Supabase project for Postgres/Auth and run the migration before first use.
+Run `npm test`, `npm run lint`, and `npm run build` before deploying.
