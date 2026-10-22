@@ -5,7 +5,7 @@ import { playerLogins } from "@/lib/player-logins";
 import type { Match, Tournament } from "@/lib/types";
 type ActionResponse = { error?: string; state?: Tournament; ok?: boolean };
 export function AdminTools() {
- const [state,setState]=useState<Tournament>(demoTournament);const [ready,setReady]=useState(false);const [busy,setBusy]=useState<string>("");const [message,setMessage]=useState("");const [login,setLogin]=useState<string>(playerLogins[0]);const [newName,setNewName]=useState(playerLogins[0]);
+ const [state,setState]=useState<Tournament>(demoTournament);const [ready,setReady]=useState(false);const [busy,setBusy]=useState<string>("");const [message,setMessage]=useState("");const [login,setLogin]=useState<string>(playerLogins[0]);const [newName,setNewName]=useState<string>(playerLogins[0] ?? "");
  async function refresh(){try{const r=await fetch("/api/tournament",{cache:"no-store"});const data=await r.json();if(!r.ok)throw new Error(data.error||"Could not load tournament");setState(data);setReady(true);}catch(e){setMessage(e instanceof Error?e.message:"Could not load tournament state.");}}
  useEffect(()=>{void refresh();},[]);
  async function send(key:string,body:Record<string,unknown>){setBusy(key);setMessage("");try{const r=await fetch("/api/admin/tournament",{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});const data:ActionResponse=await r.json();if(!r.ok)throw new Error(data.error||"Update failed");if(data.state)setState(data.state);else await refresh();setMessage("Saved successfully.");}catch(e){setMessage(e instanceof Error?e.message:"Update failed.");}finally{setBusy("");}}
