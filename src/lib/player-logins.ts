@@ -1,4 +1,4 @@
-/** Official player login list supplied for the 1337 Tennis Open. */
+/** Official player login list for the 1337 MED Tournament. */
 export const playerLogins = [
   'amissa',
   'mohaouar',

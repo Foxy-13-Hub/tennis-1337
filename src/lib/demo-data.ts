@@ -45,7 +45,7 @@ const mainDrawTeams = [
   playInWinnerSlot,
 ];
 export const demoTournament: Tournament = {
-  name: "1337 Tennis Open",
+  name: "1337 MED Tournament",
   status: "upcoming",
   teams: tournamentTeams,
   matches: generateBracket(mainDrawTeams, cornerTeamIds),
