@@ -293,22 +293,3 @@ th,td { border-color:#2b332b; }
 .draw-brand-title { color:#fff; font-size:14px; font-weight:900; letter-spacing:.01em; text-transform:none; }
 .draw-brand-subtitle { display:none; }
 .brand { gap:12px; }
-
-/* Keep the championship column mathematically centered between mirrored halves. */
-@media (min-width: 1101px) {
-  .draw-board {
-    width: 100%;
-    box-sizing: border-box;
-    grid-template-columns: minmax(0, 1fr) clamp(160px, 14vw, 190px) minmax(0, 1fr);
-    gap: clamp(8px, 1vw, 15px);
-    padding-inline: clamp(12px, 2vw, 30px);
-    margin-inline: auto;
-  }
-  .draw-half {
-    width: 100%;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: clamp(5px, .7vw, 12px);
-  }
-  .draw-final-column { width: 100%; }
-  .draw-round, .draw-match { min-width: 0; }
-}

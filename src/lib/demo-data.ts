@@ -12,7 +12,7 @@ const fixedPairs = [
   ["amedina", "CHEF-AYOUB"], // top-right
   ["nikhtib", "meel-bar"], // bottom-right
 ] as const;
-const reserved = new Set<string>(fixedPairs.flat());
+const reserved = new Set(fixedPairs.flat());
 const remaining = shuffle(playerLogins.filter(login => !reserved.has(login)));
 const randomPairs: string[][] = [];
 for (let i = 0; i < remaining.length; i += 2) randomPairs.push([remaining[i], remaining[i + 1]]);
@@ -45,7 +45,7 @@ const mainDrawTeams = [
   playInWinnerSlot,
 ];
 export const demoTournament: Tournament = {
-  name: "1337 MED Tournament",
+  name: "1337 Tennis Open",
   status: "upcoming",
   teams: tournamentTeams,
   matches: generateBracket(mainDrawTeams, cornerTeamIds),

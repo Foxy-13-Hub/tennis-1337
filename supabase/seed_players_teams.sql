@@ -1,6 +1,6 @@
 -- Seed the 34 supplied logins, 17 doubles teams, and fixed corner pairs. Run schema.sql first.
 begin;
-insert into public.tournaments (name, slug, status, bracket_capacity) values ('1337 MED Tournament','1337-tennis-open','upcoming',32) on conflict (slug) do update set name = excluded.name;
+insert into public.tournaments (name, slug, status, bracket_capacity) values ('1337 Tennis Open','1337-tennis-open','upcoming',32) on conflict (slug) do nothing;
 
 insert into public.players (external_key, name, image_path) values ('amissa', 'amissa', '/players/amissa.png') on conflict (external_key) do nothing;
 insert into public.players (external_key, name, image_path) values ('mohaouar', 'mohaouar', '/players/mohaouar.png') on conflict (external_key) do nothing;
