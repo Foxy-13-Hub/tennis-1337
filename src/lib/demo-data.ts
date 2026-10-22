@@ -12,7 +12,7 @@ const fixedPairs = [
   ["amedina", "CHEF-AYOUB"], // top-right
   ["nikhtib", "meel-bar"], // bottom-right
 ] as const;
-const reserved = new Set(fixedPairs.flat());
+const reserved = new Set<string>(fixedPairs.flat());
 const remaining = shuffle(playerLogins.filter(login => !reserved.has(login)));
 const randomPairs: string[][] = [];
 for (let i = 0; i < remaining.length; i += 2) randomPairs.push([remaining[i], remaining[i + 1]]);
