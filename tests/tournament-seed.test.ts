@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { cornerTeamIds, demoTournament } from "../src/lib/demo-data";
 import { playerLogins } from "../src/lib/player-logins";
@@ -8,6 +10,11 @@ describe("1337 Tennis Open seed", () => {
     expect(new Set(playerLogins).size).toBe(34);
     expect(demoTournament.teams.flatMap(team => team.players.map(player => player.login))).toHaveLength(34);
     expect(new Set(demoTournament.teams.flatMap(team => team.players.map(player => player.login))).size).toBe(34);
+  });
+  it("references existing local player images, including placeholders", () => {
+    for (const team of demoTournament.teams) {
+      for (const player of team.players) expect(existsSync(join(process.cwd(), "public", player.image)), player.image).toBe(true);
+    }
   });
   it("keeps the four requested doubles teams fixed", () => {
     const byId = new Map(demoTournament.teams.map(team => [team.id, team]));

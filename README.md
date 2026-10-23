@@ -21,7 +21,7 @@ Run `supabase/schema.sql`, then `supabase/seed_players_teams.sql` in the Supabas
 
 ## Live tournament operations
 
-The public bracket and admin dashboard now read/write the same saved tournament state in Supabase. Run both SQL files in this order: `supabase/schema.sql`, then `supabase/seed_players_teams.sql`. The state row is initialized from the bundled draw the first time the server reads it; later changes persist in `public.tournament_state`.
+The public bracket and admin dashboard now read/write the same saved tournament state in Supabase. Run both SQL files in this order: `supabase/schema.sql`, then `supabase/seed_players_teams.sql`. The state row is initialized from the reproducible bundled draw the first time the server reads it; later changes persist in `public.tournament_state`.
 
 From `/tournament-tennis-1337-admin`, an authorized admin can:
 
@@ -33,3 +33,15 @@ From `/tournament-tennis-1337-admin`, an authorized admin can:
 The public page remains the bracket page only. The service-role key is used only on the server and must never be exposed to browser code. A Supabase service-role key and the SQL migration are required for persistent live operations; without them, the public page falls back to the bundled preview and admin mutations return a configuration error.
 
 Run `npm test`, `npm run lint`, and `npm run build` before deploying.
+
+
+Admin tournament updates include the `revision` returned by `/api/tournament`.
+Stale edits receive HTTP 409; reload before submitting again. The legacy player
+rename endpoint uses this same state and requires the same revision.
+Results are stored as aggregate set wins (array lengths), not individual game
+scores. Admin corrections, including corrections after completion, invalidate
+only the affected downstream branch. Repeating an identical result is safe.
+
+The audit findings, verification commands, and remaining limitations are in
+[AUDIT.md](AUDIT.md). Optional browser checks are in `scripts/audit-browser.mjs`;
+Playwright is not added to the application dependencies.

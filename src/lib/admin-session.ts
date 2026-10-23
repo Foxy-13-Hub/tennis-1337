@@ -33,7 +33,7 @@ export function verifyAdminToken(token?: string): AdminProfile | null {
   try {
     const data = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     const allowed = adminProfiles().find(a => a.login === data.login);
-    if (!allowed || data.exp < Date.now()) return null;
+    if (!allowed || !Number.isFinite(data.exp) || data.exp <= Date.now()) return null;
     return { ...allowed, displayName: allowed.displayName };
   } catch { return null; }
 }

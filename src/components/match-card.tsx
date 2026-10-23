@@ -1,18 +1,17 @@
 import type { Match, Team } from "@/lib/types";
 import { TeamAvatars } from "./team-avatars";
-import Link from "next/link";
 
 function TeamRow({ team, score, winner }: { team: Team | null; score?: number; winner?: boolean }) {
   if (!team) return <div className="match-team"><div className="team-avatar-pair"><span className="avatar"/></div><div><div className="match-team-name" style={{color:"#8a938c"}}>To be determined</div><div className="match-team-sub">Awaiting previous round</div></div></div>;
   return <div className="match-team">
     <TeamAvatars team={team}/>
-    <div style={{minWidth:0}}><Link href={`/teams/${team.id}`} className="match-team-name">{team.name}</Link><div className="match-team-sub">{team.players.map(p=>p.name).join(" · ")}</div></div>
+    <div style={{minWidth:0}}><span className="match-team-name">{team.name}</span><div className="match-team-sub">{team.players.map(p=>p.name).join(" · ")}</div></div>
     {score !== undefined && <span className="score" style={{color:winner?"#167346":"#18231b"}}>{score}</span>}
   </div>;
 }
 export function MatchCard({ match }: { match: Match }) {
-  const aScore = match.setsA.reduce((n, x) => n + (x > match.setsB[match.setsA.indexOf(x)] ? 1 : 0), 0);
-  const bScore = match.setsB.reduce((n, x, i) => n + (x > match.setsA[i] ? 1 : 0), 0);
+  const aScore = match.setsA.length;
+  const bScore = match.setsB.length;
   const winnerA = !!match.winnerId && match.winnerId === match.teamA?.id;
   const winnerB = !!match.winnerId && match.winnerId === match.teamB?.id;
   const statusLabel = match.status === "completed" ? "Completed" : match.status === "live" ? "Live now" : match.status === "bye" ? "Bye" : match.status === "postponed" ? "Postponed" : "Upcoming";

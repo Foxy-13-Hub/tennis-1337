@@ -1,8 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
-import { demoTournament } from "@/lib/demo-data";
-import type { Tournament } from "@/lib/types";
+import { demoTournament } from "./demo-data";
+import type { Tournament } from "./types";
 
 const STATE_ID = "1337-tennis-open";
+export class TournamentConflictError extends Error {}
 function db() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -11,17 +12,27 @@ function db() {
 }
 export async function getTournamentState(): Promise<Tournament> {
   const client = db();
-  if (!client) return demoTournament;
-  const { data, error } = await client.from("tournament_state").select("state").eq("id", STATE_ID).maybeSingle();
-  if (error) throw new Error(`Tournament state could not be loaded: ${error.message}`);
-  if (data?.state) return data.state as Tournament;
-  const { error: insertError } = await client.from("tournament_state").upsert({ id: STATE_ID, state: demoTournament, updated_at: new Date().toISOString() });
-  if (insertError) throw new Error(`Tournament state could not be initialized: ${insertError.message}`);
-  return demoTournament;
+  if (!client) return structuredClone(demoTournament);
+  const load = () => client.from("tournament_state").select("state,updated_at").eq("id", STATE_ID).maybeSingle();
+  let { data, error } = await load();
+  if (error) throw new Error("Tournament state could not be loaded.");
+  if (!data) {
+    // A competing worker may already have created or edited the row.
+    const { error: insertError } = await client.from("tournament_state").upsert({ id: STATE_ID, state: demoTournament }, { onConflict: "id", ignoreDuplicates: true });
+    if (insertError) throw new Error("Tournament state could not be initialized.");
+    ({ data, error } = await load());
+  }
+  if (error || !data?.state) throw new Error("Tournament state could not be loaded.");
+  return { ...data.state as Tournament, revision: data.updated_at };
 }
-export async function saveTournamentState(state: Tournament) {
+export async function saveTournamentState(state: Tournament): Promise<Tournament> {
   const client = db();
-  if (!client) throw new Error("Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY on the server.");
-  const { error } = await client.from("tournament_state").upsert({ id: STATE_ID, state, updated_at: new Date().toISOString() });
-  if (error) throw new Error(`Tournament state could not be saved: ${error.message}`);
+  if (!client) throw new Error("Persistent tournament storage is not configured.");
+  if (!state.revision) throw new TournamentConflictError("Reload the tournament before saving.");
+  const { revision, ...stored } = state;
+  const updatedAt = new Date(Math.max(Date.now(), Date.parse(revision) + 1)).toISOString();
+  const { data, error } = await client.from("tournament_state").update({ state: stored, updated_at: updatedAt }).eq("id", STATE_ID).eq("updated_at", revision).select("updated_at").maybeSingle();
+  if (error) throw new Error("Tournament state could not be saved.");
+  if (!data) throw new TournamentConflictError("The tournament changed. Reload it before submitting your edit again.");
+  return { ...stored, revision: data.updated_at };
 }

@@ -30,6 +30,7 @@ export type Match = {
 };
 
 export type Tournament = {
+  revision?: string;
   name: string;
   status: "upcoming" | "in_progress" | "completed";
   teams: Team[];

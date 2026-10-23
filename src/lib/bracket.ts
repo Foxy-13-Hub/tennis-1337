@@ -25,6 +25,14 @@ export function generateBracket(teams: Team[], corners: CornerTeams, random = Ma
   const required = [corners.topLeft, corners.bottomLeft, corners.topRight, corners.bottomRight];
   if (new Set(required).size !== 4) throw new Error("Choose four different corner teams.");
   if (teams.length < 4) throw new Error("At least four teams are required.");
+  if (teams.some(team => !team.id?.trim() || team.players.length !== 2 ||
+    team.players.some(player => !player.id?.trim() || !player.name?.trim()))) {
+    throw new Error("Each doubles team needs an ID and two valid players.");
+  }
+  const playerIds = teams.flatMap(team => team.players.map(player => player.id));
+  if (new Set(teams.map(team => team.id)).size !== teams.length || new Set(playerIds).size !== playerIds.length) {
+    throw new Error("Teams and players must have unique IDs.");
+  }
   const byId = new Map(teams.map(t => [t.id, t]));
   if (required.some(id => !byId.has(id))) throw new Error("A selected corner team does not exist.");
   const capacity = 2 ** Math.ceil(Math.log2(teams.length));
@@ -42,41 +50,38 @@ export function generateBracket(teams: Team[], corners: CornerTeams, random = Ma
   }
   // Remaining slots are byes. Pairing is fixed after this one-time generation.
   const matches: Match[] = [];
-  let currentIds: string[] = [];
   const rounds = Math.log2(capacity);
   for (let r = 1; r <= rounds; r++) {
     const count = capacity / (2 ** r);
-    const ids: string[] = [];
     for (let pos = 0; pos < count; pos++) {
       const id = `r${r}-m${pos + 1}`;
-      ids.push(id);
       const teamA = r === 1 ? firstRound[pos * 2] : null;
       const teamB = r === 1 ? firstRound[pos * 2 + 1] : null;
       const nextMatchId = r < rounds ? `r${r + 1}-m${Math.floor(pos / 2) + 1}` : undefined;
       const nextSlot = r < rounds ? (pos % 2 === 0 ? "A" : "B") as "A" | "B" : undefined;
       const match: Match = {
         id, round:r, position:pos, teamA, teamB, setsA:[], setsB:[],
-        status: (!teamA || !teamB) ? "bye" : "upcoming", nextMatchId, nextSlot
+        status: "upcoming", nextMatchId, nextSlot
       };
-      if (r === 1 && (!!teamA !== !!teamB)) {
-        const advancing = teamA || teamB;
-        if (advancing && nextMatchId) {
-          // Bye progression is stored as a winner without fabricating a played score.
-          match.winnerId = advancing.id;
-        }
-      }
       matches.push(match);
     }
-    currentIds = ids;
   }
-  // Propagate first-round bye teams through the bracket. A downstream slot is
-  // filled only when it is empty, and the bye is never represented as a score.
-  const index = new Map(matches.map((m, i) => [m.id, i]));
-  for (const match of matches.filter(m => m.round === 1 && m.status === "bye" && m.winnerId)) {
-    const winner = match.teamA?.id === match.winnerId ? match.teamA : match.teamB;
-    const next = match.nextMatchId ? matches[index.get(match.nextMatchId)!] : undefined;
-    if (winner && next && match.nextSlot === "A") next.teamA = winner;
-    if (winner && next && match.nextSlot === "B") next.teamB = winner;
+  // A missing slot is a bye only after its feeder has resolved. Resolve empty
+  // branches too, so sparse draws can advance through more than one round.
+  const byMatchId = new Map(matches.map(match => [match.id, match]));
+  for (const match of matches) {
+    const feeders = matches.filter(candidate => candidate.nextMatchId === match.id);
+    const resolved = match.round === 1 || feeders.every(feeder => feeder.status === "bye");
+    if (resolved && (!match.teamA || !match.teamB)) {
+      match.status = "bye";
+      const winner = match.teamA || match.teamB;
+      match.winnerId = winner?.id;
+      const next = match.nextMatchId ? byMatchId.get(match.nextMatchId) : undefined;
+      if (next && winner) {
+        if (match.nextSlot === "A") next.teamA = winner;
+        else next.teamB = winner;
+      }
+    }
   }
   return matches;
 }
@@ -91,15 +96,13 @@ export function winnerFromBestOfThree(setsA: number[], setsB: number[]): "A" | "
     if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x === y) {
       throw new Error("Each set must have valid, non-tied scores.");
     }
-    if (Math.max(x, y) < 6 || Math.abs(x - y) < 2) {
-      const tiebreakWin = Math.max(x, y) === 7 && Math.min(x, y) === 6;
-      if (!tiebreakWin) throw new Error(`Invalid set score: ${x}-${y}.`);
+    const high = Math.max(x, y), low = Math.min(x, y);
+    if (!((high === 6 && low <= 4) || (high === 7 && (low === 5 || low === 6)))) {
+      throw new Error(`Invalid set score: ${x}-${y}.`);
     }
+    if (a === 2 || b === 2) throw new Error("The match has already been decided.");
     if (x > y) a++; else b++;
   }
   if (a === b || Math.max(a,b) !== 2) throw new Error("The score must identify exactly one winner with two sets.");
-  if ((a === 2 || b === 2) && setsA.length !== (a === 2 ? setsA.length : setsB.length)) {
-    throw new Error("Invalid score.");
-  }
   return a > b ? "A" : "B";
 }

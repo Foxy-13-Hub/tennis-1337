@@ -13,7 +13,7 @@ export const playerLogins = [
   'amedina',
   'nikhtib',
   'anel-amr',
-  'ayaarab',
+  'aait-idi',
   'aaberran',
   'ayen-nom',
   'mohkhald',
