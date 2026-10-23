@@ -56,6 +56,6 @@ export default async function HomePage() {
       <section className="draw-final-column"><h2>CHAMPIONSHIP</h2><div className="draw-final-stage"><div className="final-orbit"><Trophy size={25}/></div>{finalMatch ? <MatchCard match={finalMatch}/> : <div className="draw-final-placeholder"><Trophy size={23}/><span>FINAL</span><small>Winners meet here</small></div>}<div className="champion-caption">{finalMatch?.status === "completed" ? `CHAMPIONS · ${(finalMatch.winnerId === finalMatch.teamA?.id ? finalMatch.teamA : finalMatch.teamB)?.players.map(player => player.name).join(" / ")}` : "THE ROAD TO THE TITLE"}</div></div></section>
       <div className="draw-half draw-right">{rightRounds.map((round, i) => <section className={`draw-round round-depth-${totalRounds - 1 - i}`} key={`right-${i}`}><h2>{roundTitles[totalRounds - 2 - i]}</h2><div className="draw-round-stack">{round.map((match) => <MatchCard key={match.id} match={match}/>)}</div></section>)}</div>
     </section>
-    <footer className="draw-footer"><span><strong>1337 TENNIS CUP · TOURNAMENT BRACKET</strong> · Built and designed by CAI [nel-khal]</span><span>PLAY FAIR. RALLY HARD.</span></footer>
+    <footer className="draw-footer"><span><strong>1337 TENNIS CUP</strong> · MED TOURNAMENT</span><span>Built and designed by CAI [nel-khal]</span></footer>
   </main>;
 }
