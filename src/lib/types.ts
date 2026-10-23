@@ -21,6 +21,10 @@ export type Match = {
   teamB: Team | null;
   setsA: number[];
   setsB: number[];
+  gamesA?: number;
+  gamesB?: number;
+  setHistory?: { gamesA: number; gamesB: number }[];
+  scoreUpdatedAt?: string;
   winnerId?: string;
   status: MatchStatus;
   scheduledAt?: string;
@@ -31,6 +35,7 @@ export type Match = {
 
 export type Tournament = {
   revision?: string;
+  scoringConfig?: { bestOf: 3 | 5; tiebreak: boolean; decidingSetTiebreak: boolean };
   name: string;
   status: "upcoming" | "in_progress" | "completed";
   teams: Team[];

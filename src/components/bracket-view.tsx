@@ -1,3 +1,4 @@
+import { scoreLabel, setHistoryLabel } from "@/lib/live-score";
 import type { Match } from "@/lib/types";
 function roundName(round: number, total: number) {
   if (round === total) return "Final";
@@ -11,9 +12,9 @@ export function BracketView({ matches }: { matches: Match[] }) {
   return <div className="bracket-wrap"><div className="bracket">
     {rounds.map((round, i)=><section className="round" key={i}><h3>{roundName(i+1,total)}</h3><div className="round-matches">
       {round.map(match=><article className="bracket-match" key={match.id}>
-        <div className={`slot ${match.winnerId===match.teamA?.id?"winner":""}`}><span>{match.teamA?.name ?? (match.status==="bye"?"BYE":"TBD")}</span>{match.winnerId===match.teamA?.id&&<span className="slot-score">✓</span>}</div>
-        <div className={`slot ${match.winnerId===match.teamB?.id?"winner":""}`}><span>{match.teamB?.name ?? (match.status==="bye"?"BYE":"TBD")}</span>{match.winnerId===match.teamB?.id&&<span className="slot-score">✓</span>}</div>
-        <div className="round-note">{match.court || "Court TBA"} · {match.scheduledAt ? new Date(match.scheduledAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}) : "Date TBA"}</div>
+        {match.status === "live" && <span className="live-badge">● LIVE</span>}<div className={`slot ${match.winnerId===match.teamA?.id?"winner":""}`}><span>{match.teamA?.name ?? (match.status==="bye"?"BYE":"TBD")}</span>{["live","completed"].includes(match.status)&&<span className="slot-score">{scoreLabel(match,"A")}</span>}</div>
+        <div className={`slot ${match.winnerId===match.teamB?.id?"winner":""}`}><span>{match.teamB?.name ?? (match.status==="bye"?"BYE":"TBD")}</span>{["live","completed"].includes(match.status)&&<span className="slot-score">{scoreLabel(match,"B")}</span>}</div>
+        <small>{setHistoryLabel(match)}</small><div className="round-note">{match.court || "Court TBA"} · {match.scheduledAt ? new Date(match.scheduledAt).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}) : "Date TBA"}</div>
       </article>)}
     </div></section>)}
   </div></div>;

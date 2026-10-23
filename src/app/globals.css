@@ -334,3 +334,10 @@ button:disabled { opacity:.55; cursor:not-allowed; transform:none; }
 .champion-caption { align-self:start; }
 
 .footer { color:var(--muted); }
+
+.live-badge{display:inline-block;color:#b42318;background:#fff0ee;border:1px solid #f9c6c0;border-radius:20px;padding:3px 8px;font-size:10px;font-weight:900;white-space:nowrap}
+.live-controls{display:grid;gap:12px;border-top:1px solid #dce4dc;padding-top:12px;min-width:0}
+.live-score-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;font-size:13px;overflow-wrap:anywhere}
+.game-stepper,.live-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px}.game-stepper output{font-weight:800;min-width:24px;text-align:center}.game-stepper button{min-width:44px;min-height:44px}
+.sync-warning{padding:10px;color:#8a370f;background:#fff4df;font-size:13px}.bracket-score{white-space:nowrap;font-size:12px}
+@media(max-width:540px){.live-score-grid{grid-template-columns:1fr}.play-in-versus{font-size:13px;white-space:normal}}

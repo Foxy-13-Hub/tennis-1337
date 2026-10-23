@@ -56,3 +56,24 @@ describe("protected tournament API", () => {
     expect((await response.json()).state.teams[0].players[0].name).toBe("Updated");
   });
 });
+
+describe("live operations through authenticated API",()=>{
+ it.each(["start","liveScore","completeSet","end"])("rejects unauthorized %s before loading state",async action=>{
+  mock.session.mockResolvedValue(null);expect((await PATCH(request({action,matchId:"r1-m1",revision,gamesA:1,gamesB:0,setNumber:1}))).status).toBe(403);expect(mock.save).not.toHaveBeenCalled();
+ });
+ it("returns the latest persisted state after multiple saves and completion",async()=>{
+  let persisted={...structuredClone(demoTournament),revision};
+  mock.load.mockImplementation(async()=>structuredClone(persisted));
+  mock.save.mockImplementation(async state=>{persisted={...state,revision:new Date(Date.parse(persisted.revision)+1).toISOString()};return structuredClone(persisted);});
+  async function send(action:string,extra={}){const response=await PATCH(request({action,matchId:"r1-m1",revision:persisted.revision,...extra}));expect(response.status).toBe(200);return (await response.json()).state;}
+  await send("start");expect(persisted.matches[0]).toMatchObject({status:"live",gamesA:0,gamesB:0});
+  for(const [gamesA,gamesB] of [[1,0],[2,1],[3,1]]){const result=await send("liveScore",{gamesA,gamesB});expect(result.matches[0]).toMatchObject({gamesA,gamesB});}
+  for(let setNumber=1;setNumber<=2;setNumber++){await send("liveScore",{gamesA:6,gamesB:3});await send("completeSet",{setNumber});}
+  await send("end");expect(persisted.matches[0].status).toBe("completed");
+  expect((await PATCH(request({action:"liveScore",matchId:"r1-m1",gamesA:0,gamesB:0,revision:persisted.revision}))).status).toBe(400);
+ });
+ it("does not claim success after failed live persistence",async()=>{
+  mock.save.mockRejectedValue(new Error("Storage unavailable"));
+  const response=await PATCH(request({action:"start",matchId:"r1-m1",revision}));expect(response.status).toBe(503);expect((await response.json()).ok).toBeUndefined();expect(mock.audit).not.toHaveBeenCalled();
+ });
+});

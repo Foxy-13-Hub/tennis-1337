@@ -1,10 +1,22 @@
 import { z } from "zod";
 import type { Match, Team, Tournament } from "./types";
 
+const scoringRulesSchema = z.object({ bestOf: z.union([z.literal(3), z.literal(5)]), tiebreak: z.boolean(), decidingSetTiebreak: z.boolean() });
+const defaultRules = { bestOf: 3, tiebreak: true, decidingSetTiebreak: true } as const;
+function completedSetIsValid(a: number, b: number, tiebreak: boolean) {
+  if (![a,b].every(value => Number.isInteger(value) && value >= 0 && value <= 100)) return false;
+  const high = Math.max(a,b), low = Math.min(a,b);
+  return tiebreak ? (high === 6 && low <= 4) || (high === 7 && (low === 5 || low === 6)) : high >= 6 && high - low === 2;
+}
+const games = z.number().int().min(0).max(100);
 export const updateSchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("start"), matchId: z.string().min(1) }),
+  z.object({ action: z.literal("liveScore"), matchId: z.string().min(1), gamesA: games, gamesB: games }),
+  z.object({ action: z.literal("completeSet"), matchId: z.string().min(1), setNumber: z.number().int().min(1).max(5) }),
+  z.object({ action: z.literal("end"), matchId: z.string().min(1) }),
   z.object({ action: z.literal("schedule"), matchId: z.string().min(1), scheduledAt: z.string().datetime({ offset: true }).nullable(), court: z.string().trim().max(80).nullable() }),
   z.object({ action: z.literal("rename"), login: z.string().min(1).max(80), name: z.string().trim().min(1).max(100) }),
-  z.object({ action: z.literal("score"), matchId: z.string().min(1), setsA: z.number().int().min(0).max(2), setsB: z.number().int().min(0).max(2) }),
+  z.object({ action: z.literal("score"), matchId: z.string().min(1), setsA: z.number().int().min(0).max(3), setsB: z.number().int().min(0).max(3) }),
 ]);
 export class TournamentInputError extends Error {}
 const placeholder = (): Team => ({
@@ -15,6 +27,7 @@ const placeholder = (): Team => ({
   ],
 });
 function reset(match: Match) {
+  match.gamesA = 0; match.gamesB = 0; match.setHistory = []; delete match.scoreUpdatedAt;
   match.setsA = []; match.setsB = []; delete match.winnerId; match.status = "upcoming";
 }
 function clearDownstream(state: Tournament, match: Match) {
@@ -57,9 +70,62 @@ export function applyTournamentAction(input: Tournament, rawAction: unknown): To
     match.scheduledAt = action.scheduledAt || undefined; match.court = action.court || undefined;
     return state;
   }
+  if (["start", "liveScore", "completeSet", "end"].includes(action.action)) {
+    if (!match.teamA || !match.teamB || match.teamA.id === match.teamB.id ||
+      ![match.teamA, match.teamB].every(team => state.teams.some(candidate => candidate.id === team.id))) {
+      throw new TournamentInputError("Both eligible teams must be assigned before starting a match.");
+    }
+    const config = scoringRulesSchema.safeParse(state.scoringConfig ?? defaultRules);
+    if (!config.success) throw new TournamentInputError("Invalid tournament scoring configuration.");
+    const rules = config.data;
+    const required = Math.floor(rules.bestOf / 2) + 1;
+    const won = Math.max(match.setsA.length, match.setsB.length) >= required;
+    if (action.action === "start") {
+      if (match.status !== "upcoming" && match.status !== "postponed") throw new TournamentInputError("Only pending matches can be started.");
+      reset(match); match.status = "live";
+    } else {
+      if (match.status !== "live") throw new TournamentInputError("Only LIVE matches can be scored.");
+      if (action.action === "liveScore") {
+        if (won) throw new TournamentInputError("The required sets are won. End the match.");
+        match.gamesA = action.gamesA; match.gamesB = action.gamesB;
+      } else if (action.action === "completeSet") {
+        if (won) throw new TournamentInputError("The required sets are already won.");
+        if (action.setNumber !== (match.setHistory?.length ?? 0) + 1) throw new TournamentInputError("This set was already recorded. Reload the match.");
+        const a = match.gamesA ?? 0, b = match.gamesB ?? 0;
+        const deciding = action.setNumber === rules.bestOf;
+        const tiebreak = deciding ? rules.decidingSetTiebreak : rules.tiebreak;
+        const valid = completedSetIsValid(a, b, tiebreak);
+        if (!valid) throw new TournamentInputError("Invalid completed set: win by two games from six, or 7–6 with a tiebreak.");
+        match.setHistory = [...(match.setHistory ?? []), { gamesA: a, gamesB: b }];
+        (a > b ? match.setsA : match.setsB).push(1);
+        match.gamesA = 0; match.gamesB = 0;
+      } else if (action.action === "end") {
+        if (!won || match.setsA.length === match.setsB.length || (match.gamesA ?? 0) !== 0 || (match.gamesB ?? 0) !== 0 ||
+          (match.setHistory?.length ?? 0) !== match.setsA.length + match.setsB.length) throw new TournamentInputError("Record all valid sets before ending the match.");
+        let winsA = 0, winsB = 0;
+        for (const [index, set] of match.setHistory!.entries()) {
+          if (Math.max(winsA, winsB) >= required || !completedSetIsValid(set.gamesA, set.gamesB,
+            index + 1 === rules.bestOf ? rules.decidingSetTiebreak : rules.tiebreak)) throw new TournamentInputError("Invalid set history.");
+          if (set.gamesA > set.gamesB) winsA++; else winsB++;
+        }
+        if (winsA !== match.setsA.length || winsB !== match.setsB.length || Math.max(winsA, winsB) !== required) throw new TournamentInputError("Set history does not match the result.");
+        const history = match.setHistory!;
+        const setsA = [...match.setsA], setsB = [...match.setsB];
+        finishResult(state, match, setsA.length, setsB.length, false);
+        match.setsA = setsA; match.setsB = setsB; match.setHistory = history;
+        match.gamesA = 0; match.gamesB = 0; match.scoreUpdatedAt = new Date().toISOString();
+        return state;
+      }
+    }
+    match.scoreUpdatedAt = new Date().toISOString();
+    updateStatus(state); return state;
+  }
+  if (action.action !== "score") throw new TournamentInputError("Invalid action.");
+  if (match.status === "live") throw new TournamentInputError("Use live scoring and validated End Match for a LIVE match.");
   const clearing = action.setsA === 0 && action.setsB === 0;
-  if (!clearing && (Math.max(action.setsA, action.setsB) !== 2 || action.setsA === action.setsB)) {
-    throw new TournamentInputError("Enter a valid best-of-three result: 2–0, 2–1, 0–2 or 1–2.");
+  const required = Math.floor((state.scoringConfig?.bestOf ?? 3) / 2) + 1;
+  if (!clearing && (Math.max(action.setsA, action.setsB) !== required || Math.min(action.setsA, action.setsB) >= required)) {
+    throw new TournamentInputError(`Enter a valid best-of-${state.scoringConfig?.bestOf ?? 3} result; the winner must win ${required} sets.`);
   }
   if (!clearing && (!match.teamA || !match.teamB || match.teamA.id === match.teamB.id ||
     !state.teams.some(team => team.id === match.teamA!.id) || !state.teams.some(team => team.id === match.teamB!.id))) {
@@ -72,6 +138,11 @@ export function applyTournamentAction(input: Tournament, rawAction: unknown): To
     updateStatus(state); return state;
   }
 
+  return finishResult(state, match, action.setsA, action.setsB, clearing);
+}
+// All result paths share the original bracket correction and advancement logic.
+// The caller persists this whole state in one conditional database write.
+function finishResult(state: Tournament, match: Match, setsA: number, setsB: number, clearing: boolean): Tournament {
   let playInTarget: Match | undefined;
   let playInSlot: "A" | "B" | undefined;
   if (match.id === state.playInMatch?.id) {
@@ -84,8 +155,8 @@ export function applyTournamentAction(input: Tournament, rawAction: unknown): To
   } else clearDownstream(state, match);
   reset(match);
   if (!clearing) {
-    match.setsA = Array(action.setsA).fill(1); match.setsB = Array(action.setsB).fill(1);
-    const winner = action.setsA > action.setsB ? match.teamA! : match.teamB!;
+    match.setsA = Array(setsA).fill(1); match.setsB = Array(setsB).fill(1);
+    const winner = setsA > setsB ? match.teamA! : match.teamB!;
     match.winnerId = winner.id; match.status = "completed";
     const next = playInTarget || state.matches.find(candidate => candidate.id === match.nextMatchId);
     const slot = playInSlot || match.nextSlot;

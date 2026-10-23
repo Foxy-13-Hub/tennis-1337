@@ -1,7 +1,8 @@
+import { scoreLabel, setHistoryLabel } from "@/lib/live-score";
 import type { Match, Team } from "@/lib/types";
 import { TeamAvatars } from "./team-avatars";
 
-function TeamRow({ team, score, winner }: { team: Team | null; score?: number; winner?: boolean }) {
+function TeamRow({ team, score, winner }: { team: Team | null; score?: string; winner?: boolean }) {
   if (!team) return <div className="match-team"><div className="team-avatar-pair"><span className="avatar"/></div><div><div className="match-team-name" style={{color:"#8a938c"}}>To be determined</div><div className="match-team-sub">Awaiting previous round</div></div></div>;
   return <div className="match-team">
     <TeamAvatars team={team}/>
@@ -10,15 +11,15 @@ function TeamRow({ team, score, winner }: { team: Team | null; score?: number; w
   </div>;
 }
 export function MatchCard({ match }: { match: Match }) {
-  const aScore = match.setsA.length;
-  const bScore = match.setsB.length;
+  const aScore = scoreLabel(match, "A");
+  const bScore = scoreLabel(match, "B");
   const winnerA = !!match.winnerId && match.winnerId === match.teamA?.id;
   const winnerB = !!match.winnerId && match.winnerId === match.teamB?.id;
-  const statusLabel = match.status === "completed" ? "Completed" : match.status === "live" ? "Live now" : match.status === "bye" ? "Bye" : match.status === "postponed" ? "Postponed" : "Upcoming";
+  const statusLabel = match.status === "completed" ? "Completed" : match.status === "live" ? "● LIVE" : match.status === "bye" ? "Bye" : match.status === "postponed" ? "Postponed" : "Upcoming";
   return <article className="match-card">
-    <div className="match-top"><span>Round {match.round}</span><span className="badge">{statusLabel}</span></div>
-    <TeamRow team={match.teamA} score={match.status === "completed" ? aScore : undefined} winner={winnerA}/>
-    <TeamRow team={match.teamB} score={match.status === "completed" ? bScore : undefined} winner={winnerB}/>
-    <div className="match-foot"><span>◷ {match.scheduledAt ? new Date(match.scheduledAt).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "Time TBA"}</span><span>⌑ {match.court || "Court TBA"}</span></div>
+    <div className="match-top"><span>Round {match.round}</span><span className={match.status === "live" ? "live-badge" : "badge"}>{statusLabel}</span></div>
+    <TeamRow team={match.teamA} score={["live", "completed"].includes(match.status) ? aScore : undefined} winner={winnerA}/>
+    <TeamRow team={match.teamB} score={["live", "completed"].includes(match.status) ? bScore : undefined} winner={winnerB}/>
+    <div>{setHistoryLabel(match)}</div><div className="match-foot"><span>◷ {match.scheduledAt ? new Date(match.scheduledAt).toLocaleString("en-GB",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"}) : "Time TBA"}</span><span>⌑ {match.court || "Court TBA"}</span></div>
   </article>;
 }
