@@ -11,6 +11,7 @@ const loginOf = (player: Team["players"][number]) =>
  * removed. Once any affected match starts, leave its saved roster untouched.
  */
 export function configurePlayInRoster(input: Tournament): Tournament {
+  if (input.rosterManaged) return input;
   if (!input.playInMatch?.teamA || !input.playInMatch.teamB) return input;
   const ids = [input.playInMatch.teamA.id, input.playInMatch.teamB.id];
   if (ids[0] === ids[1]) return input;

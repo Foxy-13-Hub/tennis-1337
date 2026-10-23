@@ -1,3 +1,4 @@
+import { applyBracketEdit, editSchemas } from "./bracket-edit";
 import { z } from "zod";
 import type { Match, Team, Tournament } from "./types";
 
@@ -10,6 +11,7 @@ function completedSetIsValid(a: number, b: number, tiebreak: boolean) {
 }
 const games = z.number().int().min(0).max(100);
 export const updateSchema = z.discriminatedUnion("action", [
+  ...editSchemas,
   z.object({ action: z.literal("start"), matchId: z.string().min(1) }),
   z.object({ action: z.literal("liveScore"), matchId: z.string().min(1), gamesA: games, gamesB: games }),
   z.object({ action: z.literal("completeSet"), matchId: z.string().min(1), setNumber: z.number().int().min(1).max(5) }),
@@ -52,6 +54,7 @@ export function applyTournamentAction(input: Tournament, rawAction: unknown): To
   const parsed = updateSchema.safeParse(rawAction);
   if (!parsed.success) throw new TournamentInputError("Invalid tournament update.");
   const action = parsed.data;
+  if (action.action === "editTeam" || action.action === "editSlots") return applyBracketEdit(input, action);
   const state = structuredClone(input);
   const matches = [...state.matches, ...(state.playInMatch ? [state.playInMatch] : [])];
   if (action.action === "rename") {

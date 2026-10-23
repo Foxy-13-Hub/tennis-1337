@@ -34,6 +34,7 @@ export type Match = {
 };
 
 export type Tournament = {
+  rosterManaged?: boolean;
   revision?: string;
   scoringConfig?: { bestOf: 3 | 5; tiebreak: boolean; decidingSetTiebreak: boolean };
   name: string;

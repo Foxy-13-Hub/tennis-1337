@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { BracketManagement } from "./bracket-management";
 import { LiveControls } from "./live-controls";
 import { demoTournament } from "@/lib/demo-data";
 import type { Match, Tournament } from "@/lib/types";
@@ -9,13 +10,33 @@ export function AdminTools() {
  const [state,setState]=useState<Tournament>(demoTournament);const [ready,setReady]=useState(false);const [busy,setBusy]=useState<string>("");const [message,setMessage]=useState("");const [login,setLogin]=useState<string>(demoTournament.teams[0]?.players[0]?.login ?? "");const [newName,setNewName]=useState<string>(demoTournament.teams[0]?.players[0]?.login ?? "");
  async function refresh(){try{const r=await fetch("/api/tournament",{cache:"no-store",signal:AbortSignal.timeout(15000)});const data=await r.json();if(!r.ok)throw new Error(data.error||"Could not load tournament");setState(data);setReady(true);}catch(e){setMessage(e instanceof Error?e.message:"Could not load tournament state.");}}
  useEffect(()=>{void refresh();},[]);
- async function send(key:string,body:Record<string,unknown>){if(saving.current||!ready)return;saving.current=true;setBusy(key);setMessage("");try{const r=await fetch("/api/admin/tournament",{method:"PATCH",signal:AbortSignal.timeout(15000),headers:{"Content-Type":"application/json"},body:JSON.stringify({...body,revision:state.revision})});const data:ActionResponse=await r.json();if(!r.ok){if(r.status===409){setReady(false);await refresh();}throw new Error(data.error||"Update failed");}if(data.state)setState(data.state);else await refresh();setMessage(data.auditSaved===false?"Saved successfully, but audit logging failed.":"Saved successfully.");}catch(e){setMessage(e instanceof Error?e.message:"Update failed.");}finally{saving.current=false;setBusy("");}}
+ async function send(key:string,body:Record<string,unknown>):Promise<boolean>{
+  if(saving.current||!ready)return false;saving.current=true;setBusy(key);setMessage("");
+  try{
+   async function request(extra:Record<string,unknown>){return fetch("/api/admin/tournament",{method:"PATCH",signal:AbortSignal.timeout(15000),headers:{"Content-Type":"application/json"},body:JSON.stringify({...body,revision:state.revision,...extra})});}
+   const previewResponse=await request({preview:true});
+   const preview=await previewResponse.json();
+   if(!previewResponse.ok){if(previewResponse.status===409)await refresh();throw new Error(preview.error||"Preview failed");}
+   const changes:string[]=[];
+   if(body.action==="editTeam"||body.action==="editSlots"){
+    for(const team of preview.state.teams){const old=state.teams.find(t=>t.id===team.id);if(JSON.stringify(old)!==JSON.stringify(team))changes.push(`${old?.name} → ${team.name}: ${team.players.map((p:{name:string})=>p.name).join(" / ")}`);}
+    const original=[...state.matches,...(state.playInMatch?[state.playInMatch]:[])];
+    for(const match of [...preview.state.matches,...(preview.state.playInMatch?[preview.state.playInMatch]:[])]){const old=original.find(m=>m.id===match.id);if(old?.teamA?.id!==match.teamA?.id||old?.teamB?.id!==match.teamB?.id)changes.push(`${match.id} → ${match.teamA?.name??"TBD"} vs ${match.teamB?.name??"TBD"}`);}
+   }
+   if(changes.length||preview.impacts.length){if(!window.confirm(["Review changes before saving:",...changes,preview.impacts.length?"Saved results/live scores that will be changed or reset:":"No saved results will be reset.",...preview.impacts,"Confirm and save?"].join("\n")))return false;}
+   const r=await request({confirmDestructive:preview.impacts.length>0});const data:ActionResponse=await r.json();
+   if(!r.ok){if(r.status===409)await refresh();throw new Error(data.error||"Update failed");}
+   if(data.state)setState(data.state);else await refresh();setMessage(data.auditSaved===false?"Saved successfully, but audit logging failed.":"Saved successfully.");return true;
+  }catch(e){setMessage(e instanceof Error?e.message:"Update failed.");return false;}finally{saving.current=false;setBusy("");}
+ }
+
  const players=state.teams.flatMap(team=>team.players);
  const matches=[...(state.playInMatch?[state.playInMatch]:[]),...state.matches];
  const matchTitle=(m:Match)=>`${m.id==="play-in-m1"?"PLAY-IN · ":`R${m.round} · Match ${m.position+1} · `}${m.teamA?.players.map(p=>p.name).join(" / ")||"TBD"} vs ${m.teamB?.players.map(p=>p.name).join(" / ")||"TBD"}`;
  return <div className="panel" style={{marginTop:14}}>
   <div className="section-kicker">Tournament management</div><h2 style={{margin:"8px 0"}}>Manage the live bracket</h2><p className="player-meta">Set the date, time and court for every match. Start a match, save live games, record each completed set, then end the match to advance the winner. Correcting a result clears later rounds so they can be recorded again.</p>
   {!ready&&<p className="player-meta">Loading saved tournament… <button className="secondary-btn" onClick={()=>void refresh()}>Retry loading</button></p>}
+  {ready&&<BracketManagement state={state} busy={!!busy} send={send} message={message}/>}
   <div id="players" style={{marginTop:22}}><div className="section-kicker">Player management</div><h3 style={{margin:"8px 0"}}>Rename a player</h3><div className="form-grid"><label className="field">Player login<select value={login} onChange={e=>{setLogin(e.target.value);setNewName(players.find(player=>(player.login||player.name)===e.target.value)?.name||e.target.value)}}>{players.map(player=><option key={player.id} value={player.login||player.name}>{player.login||player.name}</option>)}</select></label><label className="field">Display name<input value={newName} maxLength={100} onChange={e=>setNewName(e.target.value)}/></label></div><button className="primary-btn" disabled={!ready||!!busy||!newName.trim()} onClick={()=>void send("rename",{action:"rename",login,name:newName.trim()})}>{busy==="rename"?"Saving…":"Save player name"}</button></div>
   <div id="schedule" style={{marginTop:30}}><div className="section-kicker">Schedule & scores</div><h3 style={{margin:"8px 0"}}>All matches</h3><div style={{display:"grid",gap:12}}>{matches.map(match=><MatchEditor key={`${match.id}:${match.status}:${match.gamesA}:${match.gamesB}:${match.scoreUpdatedAt}:${match.teamA?.id}:${match.teamB?.id}:${match.setsA.length}:${match.setsB.length}:${match.scheduledAt}:${match.court}`} requiredSets={Math.floor((state.scoringConfig?.bestOf ?? 3)/2)+1} onLive={body=>void send(match.id+"-live",body)} match={match} title={matchTitle(match)} busy={!!busy||!ready} onSchedule={(scheduledAt,court)=>void send(match.id+"-schedule",{action:"schedule",matchId:match.id,scheduledAt:scheduledAt||null,court:court||null})} onScore={(setsA,setsB)=>void send(match.id+"-score",{action:"score",matchId:match.id,setsA,setsB})}/>)}</div></div>
   {message&&<div className="note" role="status" style={{marginTop:14}}>{message}</div>}

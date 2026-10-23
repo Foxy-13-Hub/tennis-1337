@@ -27,6 +27,7 @@ try {
   // Start from an already persisted draw whose canonical roster is correct
   // but whose independent play-in copy is stale, as can happen on old saves.
   const oldRow=storage.snapshot();
+  assert(oldRow,"Application must use isolated storage before browser edits");
   const staleDraw=structuredClone(oldRow.state);
   const wrongTeam=staleDraw.teams.find(team=>![staleDraw.playInMatch.teamA.id,staleDraw.playInMatch.teamB.id].includes(team.id));
   staleDraw.playInMatch.teamA={...structuredClone(wrongTeam),id:staleDraw.playInMatch.teamA.id};

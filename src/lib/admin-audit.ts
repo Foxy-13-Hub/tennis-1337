@@ -1,8 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 export async function writeAdminAudit(login: string, action: string, details: Record<string, unknown> = {}) {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Read server configuration at runtime so isolated test servers can override it.
+  const { NEXT_PUBLIC_SUPABASE_URL: url, SUPABASE_SERVICE_ROLE_KEY: key } = process.env;
   if (!url || !key) {
     console.error("ADMIN_AUDIT_NOT_PERSISTED: Supabase URL/service role key missing", { login, action, details });
     return false;

@@ -77,3 +77,19 @@ describe("live operations through authenticated API",()=>{
   const response=await PATCH(request({action:"start",matchId:"r1-m1",revision}));expect(response.status).toBe(503);expect((await response.json()).ok).toBeUndefined();expect(mock.audit).not.toHaveBeenCalled();
  });
 });
+
+describe("bracket edit preview and confirmation",()=>{
+ const edit=()=>({action:"editTeam",teamId:demoTournament.matches[0].teamA!.id,name:"New roster",playerIds:[demoTournament.matches[0].teamA!.players[1].id,demoTournament.matches[0].teamB!.players[0].id],swapConflicts:true,revision});
+ it("rejects unauthorized bracket edits and unknown local players",async()=>{
+  mock.session.mockResolvedValueOnce(null);expect((await PATCH(request(edit()))).status).toBe(403);
+  expect((await PATCH(request({...edit(),playerIds:["foreign","unknown"]}))).status).toBe(400);expect(mock.save).not.toHaveBeenCalled();
+ });
+ it("previews without writing, requires confirmation, then saves atomically",async()=>{
+  const {applyTournamentAction}=await import("../src/lib/tournament-actions");
+  mock.load.mockResolvedValue(applyTournamentAction({...structuredClone(demoTournament),revision},{action:"score",matchId:"r1-m1",setsA:2,setsB:0}));
+  const response=await PATCH(request({...edit(),preview:true}));expect(response.status).toBe(200);expect((await response.json()).impacts.length).toBeGreaterThan(0);expect(mock.save).not.toHaveBeenCalled();
+  expect((await PATCH(request(edit()))).status).toBe(422);expect(mock.save).not.toHaveBeenCalled();
+  const saved=await PATCH(request({...edit(),confirmDestructive:true}));expect(saved.status).toBe(200);expect((await saved.json()).state.matches[0].winnerId).toBeUndefined();expect(mock.save).toHaveBeenCalledOnce();
+ });
+ it("rejects stale confirmed previews",async()=>{expect((await PATCH(request({...edit(),confirmDestructive:true,revision:"2020-01-01T00:00:00Z"}))).status).toBe(409);expect(mock.save).not.toHaveBeenCalled();});
+});
