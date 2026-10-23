@@ -24,6 +24,19 @@ try {
     if (app.exitCode !== null) throw new Error(logs);
     await new Promise(resolve => setTimeout(resolve, 200));
   }
+  // Start from an already persisted draw whose canonical roster is correct
+  // but whose independent play-in copy is stale, as can happen on old saves.
+  const oldRow=storage.snapshot();
+  const staleDraw=structuredClone(oldRow.state);
+  const wrongTeam=staleDraw.teams.find(team=>![staleDraw.playInMatch.teamA.id,staleDraw.playInMatch.teamB.id].includes(team.id));
+  staleDraw.playInMatch.teamA={...structuredClone(wrongTeam),id:staleDraw.playInMatch.teamA.id};
+  const injected=await fetch(storage.url+'/rest/v1/tournament_state?updated_at='+encodeURIComponent('eq.'+oldRow.updated_at),{
+    method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({state:staleDraw,updated_at:new Date(Date.parse(oldRow.updated_at)+1).toISOString()})});
+  assert.equal(injected.status,200);
+  const reconciled=await (await fetch(origin+'/api/tournament')).json();
+  assert.deepEqual(reconciled.playInMatch.teamA.players.map(p=>p.login),['moguenia','aech-che']);
+  assert.deepEqual(storage.snapshot().state.playInMatch.teamA,reconciled.playInMatch.teamA);
+  checks.push('existing saved draw: stale play-in participant copies are corrected and persisted');
   browser = await chromium.launch();
   const adminContext = await browser.newContext(); const publicContext = await browser.newContext();
   const admin = await adminContext.newPage(), pub = await publicContext.newPage();
@@ -121,6 +134,33 @@ try {
   await playInBump('A');await playInBump('B');await savePlayIn(2,1);
   await playInBump('A');await savePlayIn(3,1);
   checks.push('requested play-in pairs: three successive admin saves persist and update the public website without reload');
+  async function playInDecrease(side,times=1) {
+    for(let i=0;i<times;i++) await playInEditor.getByRole('button',{name:`Decrease Team ${side} games`,exact:true}).click();
+  }
+  await playInDecrease('A');await savePlayIn(2,1);
+  await playInDecrease('B');await savePlayIn(2,0);
+  await playInDecrease('A',2);await savePlayIn(0,0);
+  assert(await playInEditor.getByRole('button',{name:'Decrease Team A games',exact:true}).isDisabled());
+  assert(await playInEditor.getByRole('button',{name:'Decrease Team B games',exact:true}).isDisabled());
+  assert(await playInEditor.getByRole('button',{name:'Save Score',exact:true}).isDisabled());
+  checks.push('play-in decreases persist independently, appear publicly, and stop at zero');
+  // Dispatch clicks in the same task to verify functional state updates: each
+  // click counts even when React batches the updates into one render.
+  await playInEditor.getByRole('button',{name:'Increase Team A games',exact:true}).evaluate(button=>{button.click();button.click();button.click();});
+  await playInBump('B');await savePlayIn(3,1);
+  checks.push('rapid repeated clicks preserve every game increment');
+  await playInBump('A');storage.failWrite();
+  await playInEditor.getByRole('button',{name:'Save Score',exact:true}).click();
+  await admin.getByRole('status').filter({hasText:'Tournament state could not be saved'}).waitFor();
+  const failedScore=(await (await publicContext.request.get(origin+'/api/tournament')).json()).playInMatch;
+  assert.equal(failedScore.gamesA,3);assert.equal(failedScore.gamesB,1);
+  await playInPublic.getByText('Team A · 0 [3]',{exact:true}).waitFor();
+  assert.equal(await playInPublic.getByText('Team A · 0 [4]',{exact:true}).count(),0);
+  await savePlayIn(4,1);await playInDecrease('A');await savePlayIn(3,1);
+  checks.push('failed play-in save leaves public and persisted scores unchanged; retry succeeds');
+  await playInPublic.screenshot({path:output+'/play-in-live-public.png'});
+  await playInEditor.screenshot({path:output+'/play-in-live-admin.png'});
+
   await admin.reload();await pub.reload();await playInEditor.getByText('Saved: 0 [3]',{exact:true}).waitFor();
   await playInPublic.getByText('Team A · 0 [3]',{exact:true}).waitFor();await playInPublic.getByText('Team B · 0 [1]',{exact:true}).waitFor();
   checks.push('requested play-in score and participants survive both interfaces reloading');

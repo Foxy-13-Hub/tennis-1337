@@ -33,3 +33,28 @@ describe("requested play-in roster",()=>{
   expect(configurePlayInRoster(state).playInMatch?.teamA?.players[0].name).toBe("Custom name");
  });
 });
+
+describe("existing saved play-in display",()=>{
+ it("repairs stale match team copies even when the canonical roster is already correct",()=>{
+  const state=JSON.parse(JSON.stringify(demoTournament));
+  const wrong=state.teams.find((team: {id:string})=>team.id!==state.playInMatch.teamA.id && team.id!==state.playInMatch.teamB.id);
+  state.playInMatch.teamA={...wrong,id:state.playInMatch.teamA.id};
+  const fixed=configurePlayInRoster(state);
+  expect(fixed.playInMatch?.teamA?.players.map(p=>p.login)).toEqual(["moguenia","aech-che"]);
+  expect(configurePlayInRoster(fixed)).toBe(fixed);
+  expect(state.playInMatch.teamA.players[0].login).not.toBe("moguenia");
+ });
+ it("normalizes legacy login labels, including ait-idi aliases, in persisted team copies",()=>{
+  const state=JSON.parse(JSON.stringify(demoTournament));
+  for(const team of state.teams)for(const player of team.players)player.name=player.login;
+  for(const team of state.teams)team.name=team.players.map((p:{name:string})=>p.name).join(" + ");
+  const fixed=configurePlayInRoster(state);
+  expect(fixed.playInMatch?.teamA?.players.map(p=>p.name)).toEqual(["Moguenia","Aech-Che"]);
+  expect(fixed.playInMatch?.teamB?.players.map(p=>p.name)).toEqual(["Yoabied","Ait-Idi"]);
+ });
+ it("does not replace stale participant copies on a match that has already started",()=>{
+  const state=JSON.parse(JSON.stringify(demoTournament));
+  state.playInMatch.teamA.players=structuredClone(state.teams[0].players);state.playInMatch.status="live";state.playInMatch.gamesA=2;
+  expect(configurePlayInRoster(state)).toBe(state);
+ });
+});

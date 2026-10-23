@@ -16,7 +16,7 @@ export function LiveControls({ match, busy, send }: { match: Match; busy: boolea
         const value = side === "A" ? a : b;
         const change = side === "A" ? setA : setB;
         return <div key={side}><strong>{(side === "A" ? match.teamA : match.teamB)?.name}</strong><div>Saved: {scoreLabel(match, side)}</div>
-          {match.status === "live" && <><div>Sets: {(side === "A" ? match.setsA : match.setsB).length} · Current-set games</div><div className="game-stepper"><button className="secondary-btn" aria-label={`Decrease Team ${side} games`} disabled={busy || value === 0} onClick={() => change(changeGames(value, -1))}>−</button><output aria-label={`Team ${side} games`}>{value}</output><button className="secondary-btn" aria-label={`Increase Team ${side} games`} disabled={busy || value === 100} onClick={() => change(changeGames(value, 1))}>+</button></div></>}
+          {match.status === "live" && <><div>Sets: {(side === "A" ? match.setsA : match.setsB).length} · Current-set games</div><div className="game-stepper"><button className="secondary-btn" aria-label={`Decrease Team ${side} games`} disabled={busy || value === 0} onClick={() => change(current => changeGames(current, -1))}>−</button><output aria-label={`Team ${side} games`}>{value}</output><button className="secondary-btn" aria-label={`Increase Team ${side} games`} disabled={busy || value === 100} onClick={() => change(current => changeGames(current, 1))}>+</button></div></>}
         </div>;
       })}</div>
       {match.setHistory?.length ? <div>Completed sets: {setHistoryLabel(match)}</div> : null}

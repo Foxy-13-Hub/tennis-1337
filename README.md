@@ -145,3 +145,17 @@ play-in saves of `0 [1]`–`0 [0]`, `0 [2]`–`0 [1]`, and `0 [3]`–`0 [1]` aga
 both the persisted API response and the independent public browser session,
 without reloading the public page. It then verifies reload persistence, valid
 set completion and advancement into the main draw.
+
+
+Saved-draw reconciliation also repairs stale play-in team copies when the
+canonical team list already has the confirmed pairs. Original login-style names
+are normalized consistently (including the `aait-idi` alias); custom names and
+started-match participants remain protected. Live +/− controls use functional
+state updates so clicks batched into a single render are all counted.
+
+The browser workflow now starts with an outdated persisted play-in copy and
+verifies that it is repaired in storage. It also saves decreases for each team,
+returns both scores to zero, checks that negative-score buttons are disabled,
+exercises rapid clicks and a failed play-in save followed by a successful retry.
+`play-in-live-public.png` and `play-in-live-admin.png` capture the actual running
+application while the requested match is LIVE.

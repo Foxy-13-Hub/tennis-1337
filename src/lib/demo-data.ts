@@ -1,4 +1,4 @@
-import { configurePlayInRoster } from "./play-in-roster";
+import { configurePlayInRoster, playInDisplayNames } from "./play-in-roster";
 import type { Player, Team, Tournament } from "./types";
 import { playerLogins } from "./player-logins";
 import { generateBracket, shuffle } from "./bracket";
@@ -6,8 +6,7 @@ import { generateBracket, shuffle } from "./bracket";
 export function slug(name: string) {
   return name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
-const displayNames: Record<string, string> = { moguenia: "Moguenia", "aech-che": "Aech-Che", yoabied: "Yoabied", "aait-idi": "Ait-Idi" };
-const player = (login: string): Player => ({ id: `player-${login.toLowerCase()}`, login, name: displayNames[login] ?? login, image: login === "aait-idi" ? "/players/default.svg" : `/players/${login}.png` });
+const player = (login: string): Player => ({ id: `player-${login.toLowerCase()}`, login, name: playInDisplayNames[login === "aait-idi" ? "ait-idi" : login] ?? login, image: login === "aait-idi" ? "/players/default.svg" : `/players/${login}.png` });
 const fixedPairs = [
   ["amissa", "bdebbagh"], // top-left
   ["nel-khal", "masliman"], // bottom-left
