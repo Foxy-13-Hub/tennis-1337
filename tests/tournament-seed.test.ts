@@ -23,7 +23,9 @@ describe("1337 Tennis Open seed", () => {
     expect(byId.get(cornerTeamIds.topRight)?.players.map(player => player.login)).toEqual(["amedina", "CHEF-AYOUB"]);
     expect(byId.get(cornerTeamIds.bottomRight)?.players.map(player => player.login)).toEqual(["nikhtib", "meel-bar"]);
   });
-  it("draws two non-corner teams for the play-in and builds a 16-slot main bracket", () => {
+  it("pins the requested non-corner play-in teams and builds a 16-slot main bracket", () => {
+    expect(demoTournament.playInMatch?.teamA?.players.map(p=>p.name)).toEqual(["Moguenia","Aech-Che"]);
+    expect(demoTournament.playInMatch?.teamB?.players.map(p=>p.name)).toEqual(["Yoabied","Ait-Idi"]);
     expect(demoTournament.teams).toHaveLength(17);
     expect(demoTournament.playInMatch?.teamA).toBeTruthy();
     expect(demoTournament.playInMatch?.teamB).toBeTruthy();

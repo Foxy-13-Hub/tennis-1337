@@ -1,14 +1,20 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { getTournamentState, saveTournamentState } from "../src/lib/tournament-store";
+import { legacyPlayInDraw } from "./fixtures/play-in-draw";
 import { applyTournamentAction as apply } from "../src/lib/tournament-actions";
 // Node fixture is shared with the standalone browser script.
 import { startTestStorage } from "../scripts/live-test-storage.mjs";
 let storage: Awaited<ReturnType<typeof startTestStorage>>;
-beforeAll(async()=>{storage=await startTestStorage();vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL",storage.url);vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY","isolated-test-only");});
+beforeAll(async()=>{storage=await startTestStorage();vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL",storage.url);vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY","isolated-test-only");
+ await fetch(storage.url+"/rest/v1/tournament_state",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({id:"1337-tennis-open",state:legacyPlayInDraw()})});
+});
 afterAll(async()=>{vi.unstubAllEnvs();await storage?.close();});
 describe("real Supabase SDK over isolated PostgREST storage",()=>{
  it("persists every save, handles concurrency/failure and atomically advances",async()=>{
   let s=await getTournamentState();const matchId=s.matches[0].id;
+  expect(s.playInMatch?.teamA?.players.map(p=>p.login)).toEqual(["moguenia","aech-che"]);
+  expect(s.playInMatch?.teamB?.players.map(p=>p.login)).toEqual(["yoabied","aait-idi"]);
+  expect(storage.snapshot().state.playInMatch.teamA).toEqual(s.playInMatch?.teamA);
   const mutate=async(action:string,extra={})=>{s=await saveTournamentState(apply(s,{action,matchId,...extra}));};
   await mutate("start");expect((await getTournamentState()).matches[0]).toMatchObject({status:"live",gamesA:0,gamesB:0});
   for(const [gamesA,gamesB] of [[1,0],[2,1],[3,1]]){await mutate("liveScore",{gamesA,gamesB});expect((await getTournamentState()).matches[0]).toMatchObject({gamesA,gamesB,setsA:[],setsB:[]});}

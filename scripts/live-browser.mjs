@@ -17,7 +17,7 @@ const app = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start',
 });
 app.stdout.on('data', data => { logs += data; });app.stderr.on('data', data => { logs += data; });
 let browser;
-const checks = [], errors = [];
+const checks = [], errors = [], playInSaves = [];
 try {
   for (let i = 0; i < 100; i++) {
     try { if ((await fetch(origin + '/api/tournament')).ok) break; } catch {}
@@ -101,10 +101,43 @@ try {
   await playInEditor.getByText('Match status: LIVE',{exact:true}).waitFor();
   const playInPublic=pub.getByRole('region',{name:'Preliminary match for slot 16'});
   await playInPublic.getByText('Team A · 0 [0]',{exact:true}).waitFor();
-  await playInEditor.getByRole('button',{name:'Increase Team B games',exact:true}).click();
-  await playInEditor.getByRole('button',{name:'Save Score',exact:true}).click();
-  await playInPublic.getByText('Team B · 0 [1]',{exact:true}).waitFor();
-  checks.push('play-in independently starts and propagates saved live games');
+  await playInPublic.getByText('Moguenia / Aech-Che',{exact:true}).waitFor();
+  await playInPublic.getByText('Yoabied / Ait-Idi',{exact:true}).waitFor();
+  async function playInBump(side, times=1) {
+    for(let i=0;i<times;i++) await playInEditor.getByRole('button',{name:`Increase Team ${side} games`,exact:true}).click();
+  }
+  async function savePlayIn(a,b) {
+    const request=admin.waitForRequest(req=>req.url().endsWith('/api/admin/tournament') && req.method()==='PATCH');
+    await playInEditor.getByRole('button',{name:'Save Score',exact:true}).click();
+    const sent=(await request).postDataJSON();assert.equal(sent.gamesA,a);assert.equal(sent.gamesB,b);
+    await playInEditor.getByText('Showing saved score.',{exact:true}).waitFor();
+    await playInPublic.getByText(`Team A · 0 [${a}]`,{exact:true}).waitFor();
+    await playInPublic.getByText(`Team B · 0 [${b}]`,{exact:true}).waitFor();
+    const saved=(await (await publicContext.request.get(origin+'/api/tournament')).json()).playInMatch;
+    assert.equal(saved.gamesA,a);assert.equal(saved.gamesB,b);assert.equal(saved.status,'live');
+    playInSaves.push({teamA:`0 [${a}]`,teamB:`0 [${b}]`,revisionSaved:true,publicUpdatedWithoutReload:true});
+  }
+  await playInBump('A');await savePlayIn(1,0);
+  await playInBump('A');await playInBump('B');await savePlayIn(2,1);
+  await playInBump('A');await savePlayIn(3,1);
+  checks.push('requested play-in pairs: three successive admin saves persist and update the public website without reload');
+  await admin.reload();await pub.reload();await playInEditor.getByText('Saved: 0 [3]',{exact:true}).waitFor();
+  await playInPublic.getByText('Team A · 0 [3]',{exact:true}).waitFor();await playInPublic.getByText('Team B · 0 [1]',{exact:true}).waitFor();
+  checks.push('requested play-in score and participants survive both interfaces reloading');
+  await playInBump('A',3);await playInBump('B',2);await savePlayIn(6,3);
+  await playInEditor.getByRole('button',{name:'Complete Set',exact:true}).click();await playInEditor.getByText('Saved: 1 [0]',{exact:true}).waitFor();
+  await playInPublic.getByText('Team A · 1 [0]',{exact:true}).waitFor();
+  await playInBump('A',6);await playInEditor.getByRole('button',{name:'Save Score',exact:true}).click();
+  await playInEditor.getByText('Showing saved score.',{exact:true}).waitFor();
+  await playInEditor.getByRole('button',{name:'Complete Set',exact:true}).click();await playInEditor.getByText('Saved: 2 [0]',{exact:true}).waitFor();
+  await playInEditor.getByRole('button',{name:'End Match',exact:true}).click();await playInEditor.getByText('Match status: COMPLETED',{exact:true}).waitFor();
+  await playInPublic.getByText('Team A · 2 [0]',{exact:true}).waitFor();assert.equal(await playInPublic.getByText('● LIVE',{exact:true}).count(),0);
+  const finalDraw=await (await publicContext.request.get(origin+'/api/tournament')).json();
+  const winner=finalDraw.playInMatch.winnerId;
+  assert.equal(winner,finalDraw.playInMatch.teamA.id);
+  assert(finalDraw.matches.some(match=>match.round===1 && [match.teamA?.id,match.teamB?.id].includes(winner)));
+  assert.deepEqual(finalDraw.playInMatch.setHistory,[{gamesA:6,gamesB:3},{gamesA:6,gamesB:0}]);
+  checks.push('requested play-in completed sets persist and Moguenia / Aech-Che advance into slot 16 after validated end');
   for(const width of [320,768,1440]){
     for(const [page,label] of [[admin,'admin'],[pub,'public']]){
       await page.setViewportSize({width,height:900});
@@ -114,7 +147,7 @@ try {
   }
   checks.push('live controls and public bracket fit mobile, tablet and desktop widths');
   assert.deepEqual(errors,[]);
-  await writeFile(output+'/results.json',JSON.stringify({checks,errors,storage:'isolated HTTP PostgREST test double; real application API and Supabase SDK'},null,2));
+  await writeFile(output+'/results.json',JSON.stringify({checks,errors,playInSaves,storage:'isolated HTTP PostgREST test double; real application API and Supabase SDK'},null,2));
   console.log(`PASS: ${checks.length} live workflow checks; no page errors. Artifacts: ${output}`);
 } catch(error){console.error(logs);throw error;}
 finally {await browser?.close();app.kill('SIGTERM');await new Promise(resolve=>app.once('exit',resolve));await storage.close();}

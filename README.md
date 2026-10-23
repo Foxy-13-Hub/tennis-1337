@@ -122,3 +122,26 @@ JSONB write, so failed persistence cannot advance the bracket partially.
 The fixture exercises application persistence over HTTP, not a real PostgreSQL
 server. A deployment smoke test against a dedicated Supabase test project is
 still required to verify that environment's credentials and RLS configuration.
+
+
+## Confirmed play-in participants
+
+Team A is **Moguenia / Aech-Che**; Team B is **Yoabied / Ait-Idi**.
+Ait-Idi retains the original `aait-idi` login/player ID. The bundled draw pins
+these pairs while preserving all team IDs, all main-draw positions, the four
+corner teams, and all 34 unique players. Displaced partners swap into the donor
+roster slots instead of disappearing or being duplicated.
+
+On loading an existing saved draw, the server reconciles these participants
+using the same conditional revision update as scoring. It updates canonical
+teams and their match copies together, without regenerating the bracket or
+resetting any scores. If any affected match has started, has scores/history,
+or has completed, its roster is preserved. A concurrent scoring write triggers
+a reload and a fresh eligibility check before any roster update. Custom player
+names, images, schedules and courts are preserved.
+
+The browser test explicitly verifies these four participants and successive
+play-in saves of `0 [1]`–`0 [0]`, `0 [2]`–`0 [1]`, and `0 [3]`–`0 [1]` against
+both the persisted API response and the independent public browser session,
+without reloading the public page. It then verifies reload persistence, valid
+set completion and advancement into the main draw.

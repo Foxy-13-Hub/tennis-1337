@@ -57,3 +57,18 @@ describe("durable state", () => {
     await expect(saveTournamentState({ ...demoTournament, revision })).rejects.toThrow("Tournament state could not be saved.");
   });
 });
+
+describe("saved play-in roster upgrade",()=>{
+ it("persists requested participants using the existing revision guard",async()=>{
+  const {legacyPlayInDraw}=await import("./fixtures/play-in-draw");
+  const query=client([{data:{state:legacyPlayInDraw(),updated_at:revision},error:null},{data:{updated_at:"2026-10-23T11:00:00.000Z"},error:null}]);
+  const state=await getTournamentState();
+  expect(state.playInMatch?.teamA?.players.map(p=>p.login)).toEqual(["moguenia","aech-che"]);
+  expect(query.eq).toHaveBeenCalledWith("updated_at",revision);expect(query.update).toHaveBeenCalledOnce();
+ });
+ it("rechecks a concurrent start and preserves its roster instead of overwriting",async()=>{
+  const {legacyPlayInDraw}=await import("./fixtures/play-in-draw");const pending=legacyPlayInDraw(),started=structuredClone(pending);started.playInMatch!.status="live";
+  const query=client([{data:{state:pending,updated_at:revision},error:null},{data:null,error:null},{data:{state:started,updated_at:"2026-10-23T11:00:00.000Z"},error:null}]);
+  const state=await getTournamentState();expect(state.playInMatch).toEqual(started.playInMatch);expect(query.update).toHaveBeenCalledOnce();
+ });
+});
