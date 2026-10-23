@@ -123,8 +123,8 @@ th { color:#69736d; text-transform:uppercase; letter-spacing:.07em; font-size:10
 .draw-title-stat div { display:flex; flex-direction:column; gap:4px; }
 .draw-title-stat strong { color:#202c23; font-size:11px; letter-spacing:.08em; }
 .draw-title-stat span { color:#7a867d; font-size:9px; font-weight:800; letter-spacing:.12em; }
-.draw-board { display:grid; grid-template-columns:minmax(0,1fr) 190px minmax(0,1fr); gap:15px; padding:0 clamp(12px,2vw,30px) 34px; align-items:stretch; }
-.draw-half { display:grid; grid-template-columns:repeat(4,minmax(155px,1fr)); gap:12px; min-width:0; }
+.draw-board { width:100%; box-sizing:border-box; display:grid; grid-template-columns:minmax(0,1fr) clamp(170px,13vw,210px) minmax(0,1fr); gap:clamp(10px,1.2vw,18px); padding:0 clamp(12px,2vw,30px) 34px; align-items:stretch; }
+.draw-half { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:clamp(6px,.8vw,12px); min-width:0; }
 .draw-round { min-width:0; display:flex; flex-direction:column; }
 .draw-round h2,.draw-final-column>h2 { min-height:32px; display:flex; align-items:center; margin:0 0 11px; color:#758177; font-size:9px; font-weight:950; letter-spacing:.11em; line-height:1.4; }
 .draw-round-stack { display:flex; flex-direction:column; justify-content:space-around; gap:12px; flex:1; min-height:650px; }
@@ -144,9 +144,9 @@ th { color:#69736d; text-transform:uppercase; letter-spacing:.07em; font-size:10
 .winner-mark { position:absolute; right:5px; top:1px; font-size:8px; color:#4b8a39; }
 .match-divider { border-top:1px solid #edf1eb; }
 .draw-match-meta { padding:6px 8px; border-top:1px solid #edf1eb; color:#7e897f; font-size:9px; }
-.draw-final-column { min-width:0; position:relative; }
-.draw-final-column>h2 { justify-content:center; }
-.draw-final-stage { min-height:650px; display:flex; flex-direction:column; justify-content:center; align-items:stretch; gap:17px; padding:20px 7px; border:1px dashed #cbd8c5; border-radius:18px; background:radial-gradient(ellipse at center,#eaf3df 0%,#f4f6f2 70%); }
+.draw-final-column { min-width:0; width:100%; position:relative; display:flex; flex-direction:column; }
+.draw-final-column>h2 { justify-content:center; text-align:center; width:100%; }
+.draw-final-stage { width:100%; box-sizing:border-box; min-height:650px; display:flex; flex-direction:column; justify-content:center; align-items:stretch; gap:17px; padding:20px 7px; border:1px dashed #cbd8c5; border-radius:18px; background:radial-gradient(ellipse at center,#eaf3df 0%,#f4f6f2 70%); }
 .final-orbit { width:58px; height:58px; align-self:center; display:grid; place-items:center; border-radius:50%; background:#c9f36a; color:#294722; box-shadow:0 0 0 9px #c9f36a33; margin-bottom:5px; }
 .draw-final-stage .draw-match { border-color:#b8ceaa; box-shadow:0 8px 24px #263d1b12; }
 .draw-final-stage .bracket-team { min-height:58px; }
@@ -157,7 +157,7 @@ th { color:#69736d; text-transform:uppercase; letter-spacing:.07em; font-size:10
 .champion-caption { text-align:center; color:#6f806a; font-size:9px; font-weight:950; letter-spacing:.14em; line-height:1.5; }
 .draw-footer { display:flex; justify-content:space-between; gap:15px; padding:20px clamp(18px,3vw,46px); border-top:1px solid #dfe6dc; color:#7a857c; font-size:9px; font-weight:850; letter-spacing:.1em; }
 .draw-footer strong { color:#293a2c; }
-@media(max-width:1500px) { .draw-board { grid-template-columns:minmax(0,1fr) 160px minmax(0,1fr); gap:9px; padding-inline:12px; } .draw-half { grid-template-columns:repeat(4,minmax(130px,1fr)); gap:8px; } .bracket-team { gap:4px; padding-inline:5px; } .bracket-player-avatars .avatar { width:21px!important; height:21px!important; } .bracket-team-name { font-size:8px; } }
+@media(max-width:1500px) { .draw-board { grid-template-columns:minmax(0,1fr) 160px minmax(0,1fr); gap:9px; padding-inline:12px; } .draw-half { grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; } .bracket-team { gap:4px; padding-inline:5px; } .bracket-player-avatars .avatar { width:21px!important; height:21px!important; } .bracket-team-name { font-size:8px; } }
 @media(max-width:1100px) { .draw-board { display:flex; flex-direction:column; overflow-x:auto; } .draw-half { min-width:1000px; } .draw-final-column { width:100%; order:2; } .draw-final-stage { min-height:0; padding:22px; } .draw-final-stage .draw-match,.draw-final-placeholder { width:min(100%,360px); align-self:center; } .draw-left { order:1; } .draw-right { order:3; } .draw-round-stack { min-height:420px; } }
 @media(max-width:560px) { .draw-header-right { display:none; } .draw-title { align-items:flex-start; flex-direction:column; padding-top:25px; } .draw-title h1 { font-size:37px; } .draw-footer { flex-direction:column; } }
 
